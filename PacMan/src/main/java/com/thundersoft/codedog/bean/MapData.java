@@ -12,6 +12,16 @@ public class MapData {
     private List<Point> fruits = new ArrayList<>();
     private List<Point> ghosts = new ArrayList<>();
     private List<Point> walls = new ArrayList<>();
+    private byte[][] wallMap;
+    private String[][] map;
+
+    public byte[][] getWallMap() {
+        return wallMap;
+    }
+
+    public void setWallMap(byte[][] wallMap) {
+        this.wallMap = wallMap;
+    }
 
     public void setMap(String[][] map) {
         this.map = map;
@@ -25,7 +35,6 @@ public class MapData {
         this.self = self;
     }
 
-    private String[][] map;
 
     public String getToken() {
         return token;

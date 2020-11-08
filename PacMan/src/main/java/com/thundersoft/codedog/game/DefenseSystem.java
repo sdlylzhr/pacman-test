@@ -108,38 +108,23 @@ public class DefenseSystem {
         return dx == 0 || dy == 0 || dx == dy;
     }
 
-    // 鬼策略
+    // 鬼策略:鬼在哪个方向，就把哪个方向的危险等级提高；如果自己面向鬼，那么就极度危险
     private DefenseAction ghostStrategy(Point self, Point ghost) {
-
         DefenseAction defenseAction = new DefenseAction();
-
         int dx = ghost.getX() - self.getX();
         int dy = ghost.getY() - self.getY();
-
-        int direction = 0;
-//        if (isInSameLine(self, ghost)) {
-//            if (dx > 0) {
-//                direction = Constant.Direction.DIRECTION_RIGHT;
-//            } else if (dx < 0) {
-//                direction = Constant.Direction.DIRECTION_LEFT;
-//            } else if (dy > 0) {
-//                direction = Constant.Direction.DIRECTION_DOWN;
-//            } else if (dy < 0) {
-//                direction = Constant.Direction.DIRECTION_UP;
-//            }
-
-        int enemyDirection = directionOfEnemy(self, ghost);
-        if (self.getDirection() == enemyDirection) {
+        int ghostDirection = directionOfEnemy(self, ghost);
+        if (self.getDirection() == ghostDirection) {
             defenseAction.setDangerLevel(Constant.Danger.EXTREMELY_DANGER);
         } else {
             defenseAction.setDangerLevel(Constant.Danger.NORMAL_DANGER);
         }
-
-        defenseAction.setDirection(direction);
+        defenseAction.setDirection(ghostDirection);
         defenseAction.setAttack(false);
         return defenseAction;
     }
 
+    // 敌人在自己的哪个方向
     private int directionOfEnemy(Point self, Point enemy) {
         int dx = enemy.getX() - self.getX();
         int dy = enemy.getY() - self.getY();

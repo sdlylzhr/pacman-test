@@ -19,11 +19,14 @@ public class MapUtil {
     }
 
     // 单例
-    private static class SingletonClassInstance{
-        private static final MapUtil instance=new MapUtil();
+    private static class SingletonClassInstance {
+        private static final MapUtil instance = new MapUtil();
     }
-    private MapUtil(){}
-    public static MapUtil getInstance(){
+
+    private MapUtil() {
+    }
+
+    public static MapUtil getInstance() {
         return SingletonClassInstance.instance;
     }
 
@@ -46,7 +49,7 @@ public class MapUtil {
         System.out.println(locationStr);
         int selfLocation = getSelfLocation(locationStr, position);
         if (selfLocation != -1) {
-            mapData.setMap(mapExec(mapStr, size, selfLocation));
+            mapExec(mapStr, size, selfLocation);
         } else {
             // todo:全部异常处理
         }
@@ -75,18 +78,22 @@ public class MapUtil {
 //        mapData.getEnemies().clear();
 //    }
 
-    private String[][] mapExec(String mapStr, int size, int selfLocation) {
+    private void mapExec(String mapStr, int size, int selfLocation) {
         String[][] map = new String[size][];
+        byte[][] wallMap = new byte[size][];
         String[] singleWords = mapStr.split("");
         for (int i = 0; i < size; i++) {
             String[] temp = new String[size];
+            byte[] wallRow = new byte[size];
             for (int k = 0; k < temp.length; k++) {
                 String singleWord = singleWords[i * size + k];
                 // 分类
                 computePointData(singleWord, size, i * size + k, selfLocation);
                 temp[k] = singleWord;
+                wallRow[k] = isWallOrFruit(singleWord);
             }
             map[i] = temp;
+            wallMap[i] = wallRow;
         }
         for (int i = 0; i < map.length; i++) {
             String[] temp = map[i];
@@ -95,18 +102,36 @@ public class MapUtil {
             }
             System.out.println();
         }
-        return map;
+        for (int i = 0; i < wallMap.length; i++) {
+            byte[] temp = wallMap[i];
+            for (int k = 0; k < temp.length; k++) {
+                System.out.print(temp[k] + " ");
+            }
+            System.out.println();
+        }
+        mapData.setMap(map);
+        mapData.setWallMap(wallMap);
     }
 
+    private byte isWallOrFruit(String singleWord) {
+        List<String> fruitWords = Arrays.asList("1", "2", "3", "4", "5");
+        if ("9".equals(singleWord)) {
+            return 1;
+        } else if (fruitWords.contains(singleWord)) {
+            return 2;
+        } else {
+            return 0;
+        }
+    }
 
     private void computePointData(String singleWord, int size, int index, int selfLocation) {
 
         int x = index % size;
         int y = index / size;
 
-        List<String> fruitWords = Arrays.asList("1","2","3","4","5");
-        List<String> playerWords = Arrays.asList("w","s","a","d");
-        List<String> bulletWords = Arrays.asList("^","v","<",">");
+        List<String> fruitWords = Arrays.asList("1", "2", "3", "4", "5");
+        List<String> playerWords = Arrays.asList("w", "s", "a", "d");
+        List<String> bulletWords = Arrays.asList("^", "v", "<", ">");
 
         if (selfLocation == index) {
             Point point = new Point(x, y, playerWords.indexOf(singleWord) + 1, Constant.TYPE.PLAYER, 0);
@@ -125,7 +150,7 @@ public class MapUtil {
         } else if ("G".equals(singleWord)) {
             Point point = new Point(x, y, Constant.Direction.DIRECTION_NONE, Constant.TYPE.GHOST, 0);
             mapData.getGhosts().add(point);
-        } else if ("9".equals(singleWord)){
+        } else if ("9".equals(singleWord)) {
             Point point = new Point(x, y, Constant.Direction.DIRECTION_NONE, Constant.TYPE.WALL, 0);
             mapData.getWalls().add(point);
         }
