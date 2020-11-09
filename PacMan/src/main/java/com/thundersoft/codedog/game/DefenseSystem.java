@@ -6,7 +6,9 @@ import com.thundersoft.codedog.bean.Point;
 import com.thundersoft.codedog.constants.Constant;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -14,50 +16,125 @@ import java.util.List;
  */
 public class DefenseSystem {
 
-    public List<DefenseAction> getDefenseActions(MapData mapData) {
+    private byte[][] mWallMap;
+    private Point mSelf;
 
-        Point self = mapData.getSelf();
-        List<Point> bullets = mapData.getBullets();
-        List<Point> ghosts = mapData.getGhosts();
-        List<Point> enemies = mapData.getEnemies();
-        // 1. 遍历所有的敌人和ghost, 保留警戒内point
+    public List<DefenseAction> getDefenseActions(MapData mapData) {
+        mSelf = mapData.getSelf();
+        List<Point> mBullets = mapData.getBullets();
+        List<Point> mGhosts = mapData.getGhosts();
+        List<Point> mEnemies = mapData.getEnemies();
+        mWallMap = mapData.getWallMap();
+        List<DefenseAction> actions = new ArrayList<>();
+//      1. 遍历所有的敌人和ghost, 保留警戒内point
         List<Point> all = new ArrayList<>();
-        all.addAll(ghosts);
-        all.addAll(enemies);
-        all.addAll(bullets);
+        all.addAll(mGhosts);
+        all.addAll(mEnemies);
+        all.addAll(mBullets);
         List<Point> dangerList = new ArrayList<>();
         for (int i = 0; i < all.size(); i++) {
             Point enemy = all.get(i);
-            if (isInDangerRange(self, enemy)) {
+            if (isInDangerRange(mSelf, enemy)) {
                 dangerList.add(enemy);
             }
         }
         System.out.println("all=====" + dangerList);
-        // 2. 判断范围内的敌人方向
-        List<Point> dList = new ArrayList<>();
-        for (int i = 0; i < dangerList.size(); i++) {
-            Point enemy = dangerList.get(i);
-            if (isInDangerDirection(self, enemy)) {
-                dList.add(enemy);
+//      2. 按方向分类敌人
+        List<Point> leftEnemies = new ArrayList<>();
+        List<Point> topEnemies = new ArrayList<>();
+        List<Point> rightEnemies = new ArrayList<>();
+        List<Point> bottomEnemies = new ArrayList<>();
+        Map<Integer, List<Point>> dangerDirectionPointsMap = new HashMap<>();
+        for (Point enemy : dangerList) {
+            int dx = enemy.getX() - mSelf.getX();
+            int dy = enemy.getY() - mSelf.getY();
+            double slope = Math.abs(dy * 1.0 / dx);
+            if (slope >= 1 && dy < 0) {
+                // 上方
+                topEnemies.add(enemy);
+            } else if (slope <= 1 && dx < 0) {
+                // 左方
+                leftEnemies.add(enemy);
+            } else if (slope >= 1 && dy > 0) {
+                // 下方
+                bottomEnemies.add(enemy);
+            } else if (slope <= 1 && dx > 0) {
+                // 右方
+                rightEnemies.add(enemy);
             }
         }
-        System.out.println("danger==" + dList);
-        // 3. 遍历危险目标，创建action
-        List<DefenseAction> actions = new ArrayList<>();
-        for (Point point : dList) {
+        dangerDirectionPointsMap.put(Constant.Direction.DIRECTION_UP, topEnemies);
+        dangerDirectionPointsMap.put(Constant.Direction.DIRECTION_LEFT, leftEnemies);
+        dangerDirectionPointsMap.put(Constant.Direction.DIRECTION_DOWN, bottomEnemies);
+        dangerDirectionPointsMap.put(Constant.Direction.DIRECTION_RIGHT, rightEnemies);
 
-            if (point.getType() == Constant.TYPE.GHOST) {
-                DefenseAction defenseAction = ghostStrategy(self, point);
-                actions.add(defenseAction);
-            } else if (isPositiveDirection(self, point) && isInSameLine(self, point)) {
-                DefenseAction defenseAction = new DefenseAction();
-                defenseAction.setAttack(false);
-                defenseAction.setDangerLevel(Constant.Danger.EXTREMELY_DANGER);
-                defenseAction.setDirection(self.getDirection());
-                actions.add(defenseAction);
+        // 策略顺序: 前，后，左，右，不动
+        for (int i = 0; i < 4; i++) {
+            List<Point> dangerPoints = dangerDirectionPointsMap.get((mSelf.getDirection() - 1 + i) % 4 + 1);
+            DefenseAction defenseAction = defaultStrategy(dangerPoints, i + 1);
+            actions.add(defenseAction);
+        }
+
+        // 不动的策略（计步）
+        DefenseAction defenseAction = notMoveStrategy(dangerList);
+        actions.add(defenseAction);
+//        List<Point> dList = new ArrayList<>();
+//        for (int i = 0; i < dangerList.size(); i++) {
+//            Point enemy = dangerList.get(i);
+//            if (isInDangerDirection(mSelf, enemy)) {
+//                dList.add(enemy);
+//            }
+//        }
+//        System.out.println("danger==" + dList);
+        return actions;
+    }
+
+    private DefenseAction notMoveStrategy(List<Point> dangerList) {
+        DefenseAction defenseAction = new DefenseAction();
+        defenseAction.setMove(Constant.Move.NO_MOVE);
+        defenseAction.setAttack(false);
+        Point nearestPoint = null;
+        int minDistance = 10000;
+        for (Point point : dangerList) {
+            int dx = point.getX() - mSelf.getX();
+            int dy = point.getY() - mSelf.getY();
+            int distance = Math.abs(dx) + Math.abs(dy);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestPoint = point;
             }
         }
-        return actions;
+        if (minDistance > 3) {
+            defenseAction.setDangerLevel(Constant.Danger.SAFTY);
+        } else if (minDistance == 3) {
+            defenseAction.setDangerLevel(Constant.Danger.NORMAL_DANGER);
+        } else if (minDistance == 2) {
+            defenseAction.setDangerLevel(Constant.Danger.SEVERE_DANGER);
+        } else {
+            defenseAction.setDangerLevel(Constant.Danger.EXTREMELY_DANGER);
+            defenseAction.setAttack(true);
+        }
+        return defenseAction;
+    }
+
+    private DefenseAction defaultStrategy(List<Point> dangerList, int moveDirection) {
+        DefenseAction defenseAction = new DefenseAction();
+        defenseAction.setAttack(false);
+        defenseAction.setDangerLevel(Constant.Danger.SAFTY);
+        defenseAction.setMove(moveDirection);
+        for (Point point : dangerList) {
+            if (isInSameLine(mSelf, point)) {
+                if (hasWallBetweenSameLineEnemy(point)) {
+                    defenseAction.setDangerLevel(Constant.Danger.SAFTY);
+                    break;
+                }
+                defenseAction.setDangerLevel(Constant.Danger.EXTREMELY_DANGER);
+                break;
+            } else {
+                defenseAction.setDangerLevel(Constant.Danger.SEVERE_DANGER);
+            }
+        }
+        return defenseAction;
     }
 
     private boolean isInDangerRange(Point self, Point enemy) {
@@ -66,6 +143,27 @@ public class DefenseSystem {
         double distance = Math.sqrt(dx * dx + dy * dy);
         System.out.println(distance);
         return distance <= 3;
+    }
+
+    private boolean hasWallBetweenSameLineEnemy(Point enemy) {
+        if (mSelf.getX() == enemy.getX()) {
+            int maxY = mSelf.getY() > enemy.getY() ? mSelf.getY() : enemy.getY();
+            int minY = mSelf.getY() < enemy.getY() ? mSelf.getY() : enemy.getY();
+            for (int i = minY; i <= maxY; i++) {
+                if (mWallMap[mSelf.getX()][i] == 1) {
+                    return true;
+                }
+            }
+        } else if (mSelf.getY() == enemy.getY()) {
+            int maxX = mSelf.getX() > enemy.getX() ? mSelf.getX() : enemy.getX();
+            int minX = mSelf.getX() < enemy.getX() ? mSelf.getX() : enemy.getX();
+            for (int i = minX; i <= maxX; i++) {
+                if (mWallMap[i][mSelf.getY()] == 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean isInDangerDirection(Point self, Point enemy) {
@@ -116,11 +214,12 @@ public class DefenseSystem {
         int ghostDirection = directionOfEnemy(self, ghost);
         if (self.getDirection() == ghostDirection) {
             defenseAction.setDangerLevel(Constant.Danger.EXTREMELY_DANGER);
+            defenseAction.setAttack(true);
         } else {
             defenseAction.setDangerLevel(Constant.Danger.NORMAL_DANGER);
+            defenseAction.setAttack(false);
         }
-        defenseAction.setDirection(ghostDirection);
-        defenseAction.setAttack(false);
+        defenseAction.setMove(ghostDirection);
         return defenseAction;
     }
 
