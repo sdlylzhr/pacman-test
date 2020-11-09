@@ -2,18 +2,18 @@ package com.thundersoft.codedog.bean;
 
 public class DefenseAction {
 
-    private int direction;
+    private int move;
 
     private int dangerLevel;
 
     private boolean attack;
 
-    public int getDirection() {
-        return direction;
+    public int getMove() {
+        return move;
     }
 
-    public void setDirection(int direction) {
-        this.direction = direction;
+    public void setMove(int move) {
+        this.move = move;
     }
 
     public int getDangerLevel() {
